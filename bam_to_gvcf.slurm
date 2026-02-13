@@ -27,79 +27,78 @@ FINAL_GVCF="$4/indiv_scaff_gvcfs/${samp}_${scaff}.rb.g.vcf.gz"
 RAW_GVCF="$4/indiv_scaff_gvcfs/${samp}_${scaff}.g.vcf.gz"
 DRAGSTR_MODEL="$4/dragstr_model/${samp}_${scaff}.dragstr_model.txt"
 
-
 # If final reblocked gVCF exists → job is done
 if [[ -f "$FINAL_GVCF" ]]; then
-    echo "Final reblocked gVCF exists. Job already complete."
-    exit 0
+	echo "Final reblocked gVCF exists. Job already complete."
+	exit 0
 fi
 
 # Ensure DRAGSTR model exists
 if [[ ! -f "$DRAGSTR_MODEL" ]]; then
-    echo "Calibrating DRAGEN STR model..."
+	echo "Calibrating DRAGEN STR model..."
 
-    gatk --java-options "-Xms16g -Xmx16g" CalibrateDragstrModel \
-         -R "$2" \
-         -I "$3/${samp}/${samp}.sorted.rg.md.bam" \
-         -L "$refdir/scaffolds.list" \
-         -str "$refdir/str_table.tsv" \
-         -O "$DRAGSTR_MODEL"
+	gatk --java-options "-Xms16g -Xmx16g" CalibrateDragstrModel \
+		-R "$2" \
+		-I "$3/${samp}/${samp}.sorted.rg.md.bam" \
+		-L "$refdir/scaffolds.list" \
+		-str "$refdir/str_table.tsv" \
+		-O "$DRAGSTR_MODEL"
 else
-    echo "DRAGSTR model exists. Skipping calibration."
+	echo "DRAGSTR model exists. Skipping calibration."
 fi
 
 # Ensure raw gVCF exists
 if [[ ! -f "$RAW_GVCF" ]]; then
 
-    if [[ -n "$6" ]]; then
-        echo "Calling haplotypes over specified intervals..."
-        INTERVAL_OPTION="-L $6"
-    else
-        echo "Calling haplotypes over default intervals..."
-        INTERVAL_OPTION="-L $1/scaffolds.list"
-    fi
+	if [[ -n "$6" ]]; then
+		echo "Calling haplotypes over specified intervals..."
+		INTERVAL_OPTION="-L $6"
+	else
+		echo "Calling haplotypes over default intervals..."
+		INTERVAL_OPTION="-L $1/scaffolds.list"
+	fi
 
-    gatk --java-options "-Xmx20g" HaplotypeCaller \
-         -R "$2" \
-         -I "$3/${samp}/*rg.md.bam" \
-         -O "$RAW_GVCF" \
-         $INTERVAL_OPTION \
-         -ERC GVCF \
-         --dragen-mode true \
-         --native-pair-hmm-threads "$SLURM_CPUS_PER_TASK" \
-         --dragstr-params-path "$DRAGSTR_MODEL" \
-         --use-jdk-deflater \
-         --use-jdk-inflater \
-         --tmp-dir "$1/${samp}_${scaff}"
+	gatk --java-options "-Xmx20g" HaplotypeCaller \
+		-R "$2" \
+		-I "$3/${samp}/*rg.md.bam" \
+		-O "$RAW_GVCF" \
+		$INTERVAL_OPTION \
+		-ERC GVCF \
+		--dragen-mode true \
+		--native-pair-hmm-threads "$SLURM_CPUS_PER_TASK" \
+		--dragstr-params-path "$DRAGSTR_MODEL" \
+		--use-jdk-deflater \
+		--use-jdk-inflater \
+		--tmp-dir "$1/${samp}_${scaff}"
 
 else
-    echo "Raw gVCF exists. Skipping HaplotypeCaller."
+	echo "Raw gVCF exists. Skipping HaplotypeCaller."
 fi
 
 # Reblock gVCF
 if [[ ! -f "$FINAL_GVCF" ]]; then
-    echo "Reblocking gVCF..."
+	echo "Reblocking gVCF..."
 
-    gatk --java-options "-Xms16g -Xmx16g" ReblockGVCF \
-         -R "$2" \
-         -V "$RAW_GVCF" \
-         -O "$FINAL_GVCF" \
-         --use-jdk-deflater \
-         --use-jdk-inflater
+	gatk --java-options "-Xms16g -Xmx16g" ReblockGVCF \
+		-R "$2" \
+		-V "$RAW_GVCF" \
+		-O "$FINAL_GVCF" \
+		--use-jdk-deflater \
+		--use-jdk-inflater
 fi
 
 # If final output exists remove BAM files if option selected
 if [[ -f "$FINAL_GVCF" ]]; then
-    echo "Final output confirmed. Cleaning up..."
+	echo "Final output confirmed. Cleaning up..."
 
-    if [[ "$5" == "T" ]]; then
-        rm -f "$3/${samp}/*rg.md.bam"
-    fi
+	if [[ "$5" == "T" ]]; then
+		rm -f "$3/${samp}/*rg.md.bam"
+	fi
 
-    rm -f "$RAW_GVCF"*
+	rm -f "$RAW_GVCF"*
 fi
 
 (exit) && echo success
-end=`date +%s`
-runtime=$((end-start))
+end=$(date +%s)
+runtime=$((end - start))
 echo "RUNTIME: $runtime seconds"
