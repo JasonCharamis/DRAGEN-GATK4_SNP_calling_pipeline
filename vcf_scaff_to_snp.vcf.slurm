@@ -1,129 +1,167 @@
 #!/bin/bash
-
 #SBATCH --job-name=gvcf2snp
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=16
 
-start=`date +%s`
-echo $HOSTNAME
+set -euo pipefail
 
+start=$(date +%s)
+echo "Host: $HOSTNAME"
 
-module load bcftools
-nind=$0
-minMQ=166.67
-minDP=10
-maxDP=$(cat $5/*/*depth.txt | grep -E [0-9] | cut -f 2 | sort -k1,1gr | head -n 1 | awk '{print $1*3}')
-minmaf=$(awk -v nind=$nind 'BEGIN {printf "%.6f\n", 5 / (2 * nind) }')
-minmafi=$(awk -v minmaf=$minmaf 'BEGIN {printf "%.6f\n", 1 - minmaf }')
-sc1=$(cat $6 | awk '{print $1}')
-sc2=$(cat $6 | awk '{print $2}')
+# --------------------
+# Conda environment
+# --------------------
+dc=$(awk '{print $1}' "$2/conda.txt")
+ec=$(awk '{print $2}' "$2/conda.txt")
 
-echo "Concatenating vcfs..."
-bcftools concat -o $1/gatk.all_indivs.vcf.gz -O z $1/scaff_vcfs/*.gatk.vcf.gz &&
+source "${dc}/conda.sh"
+conda activate "${ec}"
 
-if [ $7 == "T"]
-then
-    rm $1/indiv_scaff_gvcfs/*.rb.g.vcf.gz $1/scaff_vcfs/*.gatk.vcf.gz
-fi
+# --------------------
+# Parameters
+# --------------------
+nind=$(wc -l < "$3")
+minMQ=40
+minDP=5
 
-echo "Indexing concatenated vcf..."
-bcftools index $1/gatk.all_indivs.vcf.gz
-$2/gatk IndexFeatureFile \
-     -I $1/gatk.all_indivs.vcf.gz
+maxDP=$(awk '{print $2}' "$5"/*/*depth.txt | sort -nr | head -1 | awk '{print $1*3}')
 
-echo "Selecting SNPs..."
-$2/gatk SelectVariants \
-    -V $1/gatk.all_indivs.vcf.gz \
-    -select-type SNP \
-    -O $1/gatk.snp.vcf.gz \
-    --use-jdk-inflater \
-    --use-jdk-deflater \
-    --tmp-dir $1
+minmaf=$(awk -v n="$nind" 'BEGIN {printf "%.6f\n", 2/(2*n)}')
+minmafi=$(awk -v m="$minmaf" 'BEGIN {printf "%.6f\n", 1-m}')
 
-echo "Creating finalized VCF with iterative soft filtering of SNPs using following filters:"
-echo "  multiallelic sites"
-echo "  per-individual genotype read depth < ${minDP} & > ${maxDP}"
-echo "  QUAL < 10.4139 (DRAGENHardQUAL filter) - (1)DRAGENHardQUAL"
-echo "  % individual missing > 20% - (2)MISSING0.2"
-echo "  invariable sites - (3)INVARIABLE"
-echo "  minimum allele frequency < ${minmaf} - (4)MINMAF${minmaf}"
-echo "  minimum mapping quality < ${minMQ} - (5)MINMQ${minMQ}"
-echo "  minimum quality by depth < 2 - (6)MINQD2"
-echo "  maximum strand odds ratio > 3 - (7)MAXSOR3"
-if [ $8 ]
-then
-    echo "  masked regions - (8)MASK"
-    echo "filtering..."
-    bcftools view --threads 16 -m2 -M2 -v snps $1/gatk.snp.vcf.gz | \
-        bcftools filter --threads 16 -S . -e "FORMAT/DP<${minDP} | FORMAT/DP>${maxDP}" -O z | \
-        bcftools filter -s "(1)DRAGENHardQUAL" -e 'QUAL < 10.4139' -O z | \
-        bcftools filter --threads 16 -m + -s "(2)MISSING0.2" -e 'F_MISSING > 0.2' -O z | \
-        bcftools filter --threads 16 -m + -s "(3)INVARIABLE" -e 'AC==0 || AC==AN' -O z | \
-        bcftools filter --threads 16 -m + -s "(4)MINMAF${minmaf}" -e "AF<${minmaf} || AF>${minmafi}" -O z | \
-        bcftools filter --threads 16 -m + -s "(5)MINMQ166.67" -e "MQ < 40" -O z | \
-        bcftools filter --threads 16 -m + -s "(6)MINQD2" -e "QD < 2" -O z | \
-        bcftools filter --threads 16 -m + -s "(7)MAXSOR3" -e "SOR > 3" -O z | \
-        bcftools filter --threads 16 -m + -s "(8)MASK" --mask-file $8 -O z -o $1/gatk.snp.filtered_soft.vcf.gz
+sc1=$(awk '{print $1}' "$6")
+sc2=$(awk '{print $2}' "$6")
+
+TMP=${TMPDIR:-/tmp}
+
+echo "Individuals: $nind"
+echo "minMAF: $minmaf"
+echo "maxDP: $maxDP"
+
+# =====================================================
+# 1. CONCATENATE SCAFFOLD VCFS
+# =====================================================
+
+if [[ -f "$1/gatk.all_indivs.vcf.gz" ]]; then
+    echo "Concatenated VCF exists. Skipping."
 else
-    echo "filtering..."
-    bcftools view --threads 16 -m2 -M2 -v snps $1/gatk.snp.vcf.gz | \
-        bcftools filter --threads 16 -S . -e "FORMAT/DP<${minDP} | FORMAT/DP>${maxDP}" -O z | \
-        bcftools filter -s "(1)DRAGENHardQUAL" -e 'QUAL < 10.4139' -O z | \
-        bcftools filter --threads 16 -m + -s "(2)MISSING0.2" -e 'F_MISSING > 0.2' -O z | \
-        bcftools filter --threads 16 -m + -s "(3)INVARIABLE" -e 'AC==0 || AC==AN' -O z | \
-        bcftools filter --threads 16 -m + -s "(4)MINMAF${minmaf}" -e "AF<${minmaf} || AF>${minmafi}" -O z | \
-        bcftools filter --threads 16 -m + -s "(5)MINMQ166.67" -e "MQ < 40" -O z | \
-        bcftools filter --threads 16 -m + -s "(6)MINQD2" -e "QD < 2" -O z | \
-        bcftools filter --threads 16 -m + -s "(7)MAXSOR3" -e "SOR > 3" -O z -o $1/gatk.snp.filtered_soft.vcf.gz
+    echo "Concatenating scaffold VCFs..."
+
+    printf "%s\n" "$1"/scaff_vcfs/*.gatk.vcf.gz | sort -V > "$1/scaff_vcfs/vcf_list.txt"
+
+    bcftools concat \
+        -f "$1/scaff_vcfs/vcf_list.txt" \
+        -Oz -o "$1/gatk.all_indivs.vcf.gz"
 fi
 
-echo "Creating hard filtered vcf..."
-bcftools filter --threads 16 -i 'FILTER="PASS"' -O z -o $1/gatk.snp.filtered_hard.vcf.gz $1/gatk.snp.filtered_soft.vcf.gz &&
-# rm $1/gatk.snp.vcf.gz*
+bcftools index -f "$1/gatk.all_indivs.vcf.gz"
+gatk IndexFeatureFile -I "$1/gatk.all_indivs.vcf.gz"
 
-echo "Indexing final vcfs..."
-bcftools index $1/gatk.snp.filtered_soft.vcf.gz
-bcftools index $1/gatk.snp.filtered_hard.vcf.gz
+# Optional cleanup
+if [[ "${7:-F}" == "T" ]]; then
+    rm -f "$1"/indiv_scaff_gvcfs/*.rb.g.vcf.gz
+    rm -f "$1"/scaff_vcfs/*.gatk.vcf.gz
+fi
 
-echo "Calculating distribution of filters..."
-bcftools query --threads 16 -f '%CHROM\t%FILTER\n' $1/gatk.snp.filtered_soft.vcf.gz | \
-    sort | uniq -c | awk '{print $2"\t"$3"\t"$1}' > $1/gatk.snp.filtered_soft.FILT_DIST
-echo -e "scaff\tfilter\tno.snps" > $1/gatk.snp.filtered_soft.FILT_DIST.tsv
-cat $1/gatk.snp.filtered_soft.FILT_DIST | cut -f 1 | uniq | while read scaff
-do
-    cat $1/gatk.snp.filtered_soft.FILT_DIST | \
-        grep $scaff | \
-        sed -E 's/\;\(.+(\t[0-9]+)/\1/' | sed -E 's/\([0-9]+\)//' | \
-        cut -f 2 | sort | uniq | while read filt
-    do
-        cat $1/gatk.snp.filtered_soft.FILT_DIST | \
-            grep $scaff | \
-            sed -E 's/MQ_filter\;//; s/RPRS_filter\;//; s/FS_SOR_filter\;//' | \
-            sed -E 's/\;\(.+(\t[0-9]+)/\1/' | sed -E 's/\([0-9]+\)//' | \
-            grep $filt | \
-            awk -v scaff=$scaff -v filt=$filt '{sum += $3} END {print scaff"\t"filt"\t"sum}'
-    done
-done >> $1/gatk.snp.filtered_soft.FILT_DIST.tsv
+# =====================================================
+# 2. SELECT VARIANT TYPES
+# =====================================================
 
-echo "Collecting summary and per-sample metrics for final VCF..."
-bcftools stats -v -d 5,100,5 -S $3 $1/gatk.snp.filtered_hard.vcf.gz > $1/gatk.snp.filtered.stats
-cat $1/gatk.snp.filtered.stats | grep PSC | tail -n +2 > $1/gatk.snp.filtered.per-indiv.stats
+if [[ ! -f "$1/gatk.snp.indel.mnv.vcf.gz" ]]; then
 
-echo "Selecting INDELs..."
-$2/gatk SelectVariants \
-    -V $1/gatk.all_indivs_rehead.vcf.gz \
-    -select-type INDEL \
-    -O $1/gatk.indel.vcf.gz
-bcftools index $1/gatk.indel.vcf.gz
-bcftools index -s $1/gatk.indel.vcf.gz | sort -k2,2gr | cut -f 1,3 > gatk.indel.no_snps
+    echo "Selecting SNP/INDEL/MNV..."
 
-echo "Creating vcf with multialleleic SNPs..."
-bcftools view -m3 -v snps -O z -o $1/gatk.snp.multiallelic.vcf.gz $1/gatk.snp.vcf.gz
-bcftools index $1/gatk.multiallelic.vcf.gz
-bcftools index -s $1/gatk.multiallelic.vcf.gz | sort -k2,2gr | cut -f 1,3 > gatk.multialleleic.no_snps
+    gatk SelectVariants \
+        -V "$1/gatk.all_indivs.vcf.gz" \
+        -select-type SNP \
+        -select-type INDEL \
+        -select-type MNV \
+        -O "$1/gatk.snp.indel.mnv.vcf.gz" \
+        --tmp-dir "$TMP"
+fi
 
+bcftools index -f "$1/gatk.snp.indel.mnv.vcf.gz"
 
-(exit) && echo success
-end=`date +%s`
-runtime=$((end-start))
-echo "RUNTIME: $runtime"
+# =====================================================
+# 3. SOFT FILTERING
+# =====================================================
+
+SOFT_TMP="$1/gatk.snp.indel.mnv.filtered_soft.tmp.vcf.gz"
+SOFT_FINAL="$1/gatk.snp.indel.mnv.filtered_soft.vcf.gz"
+HARD_FINAL="$1/gatk.snp.indel.mnv.filtered_hard.vcf.gz"
+
+if [[ ! -f "$SOFT_TMP" && ! -f "$SOFT_FINAL" ]]; then
+
+    echo "Running soft filtering..."
+
+    bcftools view --threads 8 -m2 -Ou "$1/gatk.snp.indel.mnv.vcf.gz" | \
+    bcftools filter --threads 8 -S . -e "FORMAT/DP<$minDP || FORMAT/DP>$maxDP" -Ou | \
+    bcftools filter -s "(1)DRAGENHardQUAL" -e 'QUAL < 10.4139' -Ou | \
+    bcftools filter -m + -s "(2)MISSING" -e 'F_MISSING > 0.2' -Ou | \
+    bcftools filter -m + -s "(3)INVARIABLEREF" -e 'AC == 0' -Ou | \
+    bcftools filter -m + -s "(4)MINMAF" -e "AF<$minmaf || AF>$minmafi" -Ou | \
+    bcftools filter -m + -s "(5)MINMQ" -e "MQ < 40.0" -Ou | \
+    bcftools filter -m + -s "(6)MINQD2" -e "QD < 2.0" -Ou | \
+    bcftools filter -m + -s "(7)STRANDBIAS" -e "FS > 20" -Ou | \
+    bcftools filter -m + -s "(8)MAXSOR3" -e "SOR > 3.0" -Ou | \
+    bcftools filter -m + -s "(9)MQRankSum" -e "MQRankSum < -2.0 || MQRankSum > 4.0" -Ou | \
+    bcftools filter -m + -s "(10)ReadPosRankSum" -e "ReadPosRankSum < -3.0 || ReadPosRankSum > 3.0" \
+    -Oz -o "$SOFT_TMP"
+fi
+
+# Apply mask if provided
+if [[ -n "${8:-}" && -f "$8" ]]; then
+    echo "Applying mask..."
+    bcftools filter --threads 8 -m + -s "(11)MASK" \
+        --mask-file "$8" \
+        -Oz -o "$SOFT_FINAL" "$SOFT_TMP"
+else
+    mv "$SOFT_TMP" "$SOFT_FINAL"
+fi
+
+# =====================================================
+# 4. HARD FILTER
+# =====================================================
+
+if [[ ! -f "$HARD_FINAL" ]]; then
+    echo "Creating hard filtered VCF..."
+
+    bcftools filter --threads 8 \
+        -i 'FILTER="PASS"' \
+        -Oz -o "$HARD_FINAL" "$SOFT_FINAL"
+fi
+
+bcftools index -f "$SOFT_FINAL"
+bcftools index -f "$HARD_FINAL"
+
+# =====================================================
+# 5. FILTER DISTRIBUTION
+# =====================================================
+
+echo "Calculating filter distribution..."
+
+bcftools query -f '%CHROM\t%FILTER\n' "$SOFT_FINAL" | \
+sort | uniq -c | \
+awk '{print $2"\t"$3"\t"$1}' \
+> "$1/gatk.snp.indel.mnv.filtered_soft.vcf.FILT_DIST"
+
+# =====================================================
+# 6. STATS
+# =====================================================
+
+echo "Running bcftools stats..."
+
+bcftools stats \
+    -v -d 5,100,5 \
+    -S "$3" \
+    "$HARD_FINAL" \
+    > "$1/gatk.snp.indel.mnv.filtered.stats"
+
+grep '^PSC' "$1/gatk.snp.indel.mnv.filtered.stats" | tail -n +2 \
+> "$1/gatk.snp.indel.mnv.filtered.per-indiv.stats"
+
+# =====================================================
+# DONE
+# =====================================================
+
+end=$(date +%s)
+echo "SUCCESS"
+echo "Runtime: $((end-start)) sec"
