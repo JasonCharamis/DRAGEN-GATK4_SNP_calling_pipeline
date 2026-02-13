@@ -255,7 +255,7 @@ sucid=$(sbatch -t 01-00:00:00 \
 	${bin_dir}/job_report.slurm ${std} ${temp} ${rmtemp} | sed 's/Submitted batch job //')
 
 # Define your permanent home results directory
-home_results="/home/gsentis/jason/gender_bias/variant_calling_results_$(date +%F)"
+home_results="/home/"
 
 echo -e "${htsid}\n${htid}\n${dmid}\n${gwid}\n${asid}\n${stid}\n${htcid}\n${jgtid}\n${csid}\n${mgid}" >${temp}/job_IDs.txt
 
