@@ -2,8 +2,8 @@
 set -e
 
 #!/bin/bash
-#SBATCH -A gsentis   # account name
-#SBATCH -D /scratch/gsentis/jason/gender_bias  # working directory
+#SBATCH -A account_name   # account name
+#SBATCH -D working_directory  # working directory
 #SBATCH --job-name=variant_calling_pipeline_DRAGEN_GATK4_BP
 #SBATCH --time=20:00:00
 #SBATCH --output=00_DRAGEN_GATK_pipeline_%j.out
@@ -48,9 +48,9 @@ set -e
 #################
 # SET VARIABLES #
 #################
-dir="/scratch/gsentis/jason/gender_bias"  # path to root directory for all input and output files
+dir=""  # path to root directory for all input and output files
 
-dirconda="/scratch/gsentis/miniconda3/etc/profile.d"  # path to directory containing conda.sh
+dirconda=""  # path to directory containing conda.sh
 envconda="genomics"  # conda environment containing DRAGMAP & picard (& fastq-filter?)
 
 ref="${dir}/reference/GCF_000001635.27_GRCm39_genomic.fna"  # path to reference genome
@@ -79,7 +79,7 @@ lane=""  # shared lane designation prefix (e.g. "_L00" for sample_prefix_L001, s
 # Optimized for a node with 40 cores / RAM
 
 # Load modules / conda
-source /scratch/gsentis/miniconda3/etc/profile.d/conda.sh
+source /miniconda3/etc/profile.d/conda.sh
 conda init
 conda activate ${envconda}
 
