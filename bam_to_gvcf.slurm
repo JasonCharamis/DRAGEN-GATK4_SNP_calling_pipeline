@@ -25,15 +25,15 @@ echo "$sample"
 
 FINAL_GVCF="$4/indiv_scaff_gvcfs/${samp}_${scaff}.rb.g.vcf.gz"
 RAW_GVCF="$4/indiv_scaff_gvcfs/${samp}_${scaff}.g.vcf.gz"
-DRAGSTR_MODEL="$4/dragstr_model/${samp}_${scaff}.dragstr_model.txt"
+DRAGSTR_MODEL="$4/dragstr_model/${samp}.dragstr_model.txt"
 
-# If final reblocked gVCF exists → job is done
+# If final reblocked gVCF exists job here is done
 if [[ -f "$FINAL_GVCF" ]]; then
 	echo "Final reblocked gVCF exists. Job already complete."
 	exit 0
 fi
 
-# Ensure DRAGSTR model exists
+# Ensure that DRAGSTR model exists
 if [[ ! -f "$DRAGSTR_MODEL" ]]; then
 	echo "Calibrating DRAGEN STR model..."
 
