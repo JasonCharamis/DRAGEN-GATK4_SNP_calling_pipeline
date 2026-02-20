@@ -25,7 +25,6 @@ maxDP=$(awk '{print $2}' "$5"/*/*depth.txt | sort -nr | head -1 | awk '{print $1
 TMP=${TMPDIR:-/tmp}
 
 echo "Individuals: $nind"
-echo "minMAF: $minmaf"
 echo "maxDP: $maxDP"
 
 # =====================================================
