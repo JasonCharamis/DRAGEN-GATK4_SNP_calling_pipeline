@@ -92,18 +92,15 @@ if [[ ! -f "$SOFT_TMP" && ! -f "$SOFT_FINAL" ]]; then
 
 	echo "Running soft filtering..."
 
-	bcftools view --threads 8 -m2 -Ou "$1/gatk.snp.indel.mnv.vcf.gz" |
+	bcftools norm --threads 8 -m -any -f "$reference" "$1/gatk.snp.indel.mnv.vcf.gz" -Ou | # Decompose multi-allelic sites into individual biallelic records before filtering
 		bcftools filter --threads 8 -S . -e "FORMAT/DP<$minDP || FORMAT/DP>$maxDP" -Ou |
 		bcftools filter -s "(1)DRAGENHardQUAL" -e 'QUAL < 10.4139' -Ou |
-		bcftools filter -m + -s "(2)MISSING" -e 'F_MISSING > 0.2' -Ou |
-		bcftools filter -m + -s "(3)INVARIABLEREF" -e 'AC == 0' -Ou |
-		bcftools filter -m + -s "(4)MINMAF" -e "AF<$minmaf || AF>$minmafi" -Ou |
-		bcftools filter -m + -s "(5)MINMQ" -e "MQ < 40.0" -Ou |
-		bcftools filter -m + -s "(6)MINQD2" -e "QD < 2.0" -Ou |
-		bcftools filter -m + -s "(7)STRANDBIAS" -e "FS > 20" -Ou |
-		bcftools filter -m + -s "(8)MAXSOR3" -e "SOR > 3.0" -Ou |
-		bcftools filter -m + -s "(9)MQRankSum" -e "MQRankSum < -2.0 || MQRankSum > 4.0" -Ou |
-		bcftools filter -m + -s "(10)ReadPosRankSum" -e "ReadPosRankSum < -3.0 || ReadPosRankSum > 3.0" \
+		bcftools filter -m + -s "(2)INVARIABLEREF" -e 'AC == 0' -Ou |
+		bcftools filter -m + -s "(3)MINQD2" -e "QD < 2.0" -Ou |
+		bcftools filter -m + -s "(4)STRANDBIAS" -e "FS > 20" -Ou |
+		bcftools filter -m + -s "(5)MAXSOR3" -e "SOR > 3.0" -Ou |
+		bcftools filter -m + -s "(6)MQRankSum" -e "MQRankSum < -2.0 || MQRankSum > 4.0" -Ou |
+		bcftools filter -m + -s "(7)ReadPosRankSum" -e "ReadPosRankSum < -3.0 || ReadPosRankSum > 3.0" \
 			-Oz -o "$SOFT_TMP"
 fi
 
