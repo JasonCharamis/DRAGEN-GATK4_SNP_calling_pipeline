@@ -107,7 +107,7 @@ fi
 # Apply mask if provided
 if [[ -n "${8:-}" && -f "$8" ]]; then
 	echo "Applying mask..."
-	bcftools filter --threads 8 -m + -s "(11)MASK" \
+	bcftools filter --threads 8 -m + -s "(8)MASK" \
 		--mask-file "$8" \
 		-Oz -o "$SOFT_FINAL" "$SOFT_TMP"
 else
