@@ -22,12 +22,6 @@ nind=$(wc -l <"$3")
 minDP=5
 maxDP=$(awk '{print $2}' "$5"/*/*depth.txt | sort -nr | head -1 | awk '{print $1*3}')
 
-minmaf=$(awk -v n="$nind" 'BEGIN {printf "%.6f\n", 2/(2*n)}')
-minmafi=$(awk -v m="$minmaf" 'BEGIN {printf "%.6f\n", 1-m}')
-
-sc1=$(awk '{print $1}' "$6")
-sc2=$(awk '{print $2}' "$6")
-
 TMP=${TMPDIR:-/tmp}
 
 echo "Individuals: $nind"
