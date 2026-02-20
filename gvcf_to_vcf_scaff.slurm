@@ -10,8 +10,6 @@ echo $HOSTNAME
 echo "SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"
 echo ${scaff}
 
-module load bcftools
-
 ls -d $2/indiv_scaff_gvcfs/*${scaff}.rb.g.vcf.gz | sed -E "s/(.+\/)(.+)\_${scaff}\.rb.g.vcf.gz/\2\t\1\2\_${scaff}.rb.g.vcf.gz/" >$1/samples_${scaff}.gvcf.txt
 
 # GenomicsDBImport
