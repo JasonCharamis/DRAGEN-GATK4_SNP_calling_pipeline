@@ -19,9 +19,7 @@ conda activate "${ec}"
 # Parameters
 # --------------------
 nind=$(wc -l <"$3")
-minMQ=40
 minDP=5
-
 maxDP=$(awk '{print $2}' "$5"/*/*depth.txt | sort -nr | head -1 | awk '{print $1*3}')
 
 minmaf=$(awk -v n="$nind" 'BEGIN {printf "%.6f\n", 2/(2*n)}')
