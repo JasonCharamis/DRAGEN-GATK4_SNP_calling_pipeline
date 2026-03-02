@@ -189,25 +189,26 @@ if [ ${merge} ]; then
                --dependency=aftercorr:${dmid} \
                ${bin_dir}/samtools_merge.slurm ${samples_merged} ${align} ${lane} ${temp})
 
-   dep_asid="aftercorr:${mgid}"
+    dep_asid=${mgid//$'\n'/}
 else
-   dep_asid="aftercorr:${dmid}"
+    dep_asid=${dmid//$'\n'/}
 fi
 
 # 5. Alignment statistics
 asid=$(sbatch -t 3-00:00:00 \
               --parsable \
-              --array=1-${nindiv}%10 \
+              --array=1-${nindiv}%5 \
               --output=${std}/04_stats/04_stats_%A_%a.out \
               --error=${std}/04_stats/04_stats_%A_%a.err \
-              --dependency=aftercorr:${dep_asid} \
-              ${bin_dir}/align_stats.slurm ${samples_merged} ${stats} ${ref} ${align} ${temp})
+              --dependency=afterok:${dep_asid} \
+              ${bin_dir}/align_stats.slurm ${samples} ${stats} ${ref} ${align} ${temp})
 
 # -------------------------
 # Variant Calling - in its current form SNPs, MNVs (multi-nucleotide variants) and indels are selected, but you can change that in bin/vcf_scaff_to_snp.vcf.slurm
 # -------------------------
 # 6. STR table
 stid=$(sbatch -t 2-00:00:00 \
+              --parsable \
               --output=${std}/str_table_%A.out \
               --error=${std}/str_table_%A.err \
               ${bin_dir}/STRtable.slurm ${ref} ${temp} ${include})
@@ -222,7 +223,7 @@ htcid=$(sbatch -t 10-00:00:00 \
                --mem=23G \
                --error=${std}/05_hapcall/05_hapcall_%A_%a.err \
                --output=${std}/05_hapcall/05_hapcall_%A_%a.out \
-               --dependency=afterok:${stid} \
+               --dependency=afterok:${dmid}:${stid} \
                ${bin_dir}/bam_to_gvcf.slurm ${temp} ${ref} ${align} ${vcfs} ${rmbam} ${include})
 
 # Splitted GenomicsDB import and GenotypeVCFs because of different computing needs; GenomicsDB import will use many threads for 2 jobs per node at a time (for GATK4's reader threads)
