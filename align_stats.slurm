@@ -25,9 +25,9 @@ else
     echo "indexing bam..."
     samtools index $4/${sample}/${sample}.sorted.rg.md.bam
 fi
-    
+
 echo "Calculating samtools stats:"
-    
+
 if [[ -f "$2/${sample}/${sample}.samtools_stats.txt" ]]; then
     echo "$2/${sample}/${sample}.samtools_stats.txt exists. DRAGMAP stats skipped."
 else
@@ -37,24 +37,16 @@ fi
 
 if [[ -f "$2/${sample}/${sample}.dragmap_IDstats.tsv" ]]; then
     echo "$2/${sample}/${sample}.dragmap_IDstats.tsv exists. Skipping idxstats."
-else 
+else
     echo "  idxstats..."
     samtools idxstats $4/${sample}/${sample}.sorted.rg.md.bam > $2/${sample}/${sample}.dragmap_IDstats.tsv
 fi
-    
+
 if [[ -f "$2/${sample}/${sample}.dragmap_coverage.tsv" ]]; then
     echo "$2/${sample}/${sample}.dragmap_coverage.tsv exists. Skipping DRAGMAP coverage estimation."
 else
     echo "  coverage..."
     samtools coverage $4/${sample}/${sample}.sorted.rg.md.bam > $2/${sample}/${sample}.samtools_coverage.tsv
-fi
-
-if [[ -f "$2/${sample}/${sample}.dragmap_50kbwin_meancov.tsv" ]]; then
-    echo "$2/${sample}/${sample}.dragmap_50kbwin_meancov.tsv exists. Skipping DRAGMAP 50kb window mean coverage estimation."
-else
-    echo "Calculating coverage for 50Kb windows..."
-    echo -e "scaff\twin_start\twin_end\tmean_depth" > $2/${sample}/${sample}.dragmap_50kbwin_meancov.tsv
-    bedtools coverage -mean -sorted -a ${refpre}_50kb_win.bed -b $4/${sample}/${sample}.sorted.rg.md.bam >> $2/${sample}/${sample}.bedtools_50kbwin_meancov.tsv
 fi
 
 if [[ -f "$2/${sample}/${sample}.coverage_histogram.txt" ]]; then
@@ -63,13 +55,13 @@ else
       # 1. Filter out duplicates (-F 1024)
       # 2. Compute coverage with bedtools
       # 3. Create a BedGraph (-bg) for IGV and a histogram (-max) for statistics
-      # We use 'tee' to split the stream. 
+      # We use 'tee' to split the stream.
       # One side goes to a 'process substitution' for the BedGraph
       # The other side continues to the Histogram.
-    samtools view -u -F 1024 ${sample}/${sample}.sorted.rg.md.bam | \
-	tee >(bedtools genomecov -ibam stdin -bg > ${sample}.no_dups.bedgraph) | \
-	bedtools genomecov -ibam stdin -max 100 > ${sample}.coverage_histogram.txt
-fi  
+    samtools view -u -F 1024 $4/${sample}/${sample}.sorted.rg.md.bam | \
+        tee >(bedtools genomecov -ibam stdin -bg > $2/${sample}/${sample}.no_dups.bedgraph) | \
+        bedtools genomecov -ibam stdin -max 100 > $2/${sample}/${sample}.coverage_histogram.txt
+fi
 
 (exit) && echo success
 end=`date +%s`
