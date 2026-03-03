@@ -261,7 +261,7 @@ csid=$(sbatch -t 5-00:00:00 \
               --error=${std}/07_concat_vcfs_filter_SNPs_%A.err \
               --output=${std}/07_concat_vcfs_filter_SNPs_%A.out \
               --dependency=afterok:${jgtid} \
-              ${bin_dir}/vcf_scaff_to_snp.vcf.slurm ${vcfs} ${temp} ${samples_merged} ${mtDNA} ${stats} ${rmivcf} ${exclude})
+              ${bin_dir}/vcf_scaff_to_snp.vcf.slurm ${vcfs} ${temp} ${samples_merged} ${ref} ${mtDNA} ${stats} ${rmivcf} ${exclude})
 
 # 11. Job report
 sucid=$(sbatch -t 01-00:00:00 \

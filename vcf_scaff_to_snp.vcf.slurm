@@ -12,6 +12,8 @@ echo "Host: $HOSTNAME"
 dc=$(awk '{print $1}' "$2/conda.txt")
 ec=$(awk '{print $2}' "$2/conda.txt")
 
+reference=$4
+
 source "${dc}/conda.sh"
 conda activate "${ec}"
 
@@ -21,7 +23,7 @@ conda activate "${ec}"
 nind=$(wc -l < "$3")
 
 minDP=5
-maxDP=$(awk '{print $2}' "$5"/*/*depth.txt | sort -nr | head -1 | awk '{print $1*3}')
+maxDP=$(awk '{print $2}' "$6"/*/*depth.txt | sort -nr | head -1 | awk '{print $1*3}')
 
 TMP=${TMPDIR:-/tmp}
 
